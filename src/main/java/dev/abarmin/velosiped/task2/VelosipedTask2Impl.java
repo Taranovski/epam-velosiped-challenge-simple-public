@@ -367,9 +367,4 @@ public class VelosipedTask2Impl implements VelosipedTask2 {
         }
     }
 
-    private String printLine(BufferedReader stringReader) throws IOException {
-        String s3 = stringReader.readLine();
-        System.out.println(s3);
-        return s3;
-    }
 }
