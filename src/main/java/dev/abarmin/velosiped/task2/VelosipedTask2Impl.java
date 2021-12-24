@@ -53,7 +53,7 @@ public class VelosipedTask2Impl implements VelosipedTask2 {
         }
     }
 
-    public static class EndpointHandler {
+    private static class EndpointHandler {
         public Response calculateSum(Request request) {
             return new Response(request.getArg1() + request.getArg2());
         }

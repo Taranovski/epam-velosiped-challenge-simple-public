@@ -1,9 +1,9 @@
-package dev.abarmin.velosiped.task3;
+package dev.abarmin.velosiped.task4;
 
 import dev.abarmin.velosiped.task2.Request;
 import dev.abarmin.velosiped.task2.Response;
-import dev.abarmin.velosiped.task2.VelosipedTask2Impl;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -11,6 +11,8 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -18,7 +20,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class VelosipedTask3Impl implements VelosipedTask3 {
+public class CustomHttpServerImpl implements CustomHttpServer {
+    //todo awfully broken srp
+    @Override
+    public Request parseRequestParameters(String httpRequest) {
+        try {
+            return parseRequestAndDoMultipleNonSRPOperationsThere(new ByteArrayInputStream(httpRequest.getBytes(StandardCharsets.US_ASCII)), "/post-sum");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public String createHttpResponse(String responseBody) {
+        return createHttpResponseBodyWithBody(responseBody);
+    }
 
     public static final String DEFAULT_PROTOCOL = " HTTP/1.1";
     public static final String HTTP_METHOD_POST = "POST";
@@ -34,7 +50,7 @@ public class VelosipedTask3Impl implements VelosipedTask3 {
             serverSocket = new ServerSocket(port);
             serverServesRequests = true;
 
-            new Thread(new VelosipedTask3Impl.MyHandrittenConnectionHandler()).start();
+            new Thread(new MyHandrittenConnectionHandler()).start();
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -76,40 +92,17 @@ public class VelosipedTask3Impl implements VelosipedTask3 {
                             OutputStreamWriter outputStreamWriter = new OutputStreamWriter(outputStream);
                             PrintWriter bufferedWriter = new PrintWriter(outputStreamWriter, true);
                     ) {
-                        List<String> headerLines = getHeaders(inputStream);
+                        Request request = parseRequestAndDoMultipleNonSRPOperationsThere(inputStream, "/sum-post");
+                        if (request != null) {
+                            Response response = new EndpointHandler().calculateSum(request);
 
-                        String method = getMethod(headerLines);
-                        String uriWithParams = getUriWithParams(headerLines, method);
-                        //not required right now
-                        Map<String, String> uriParams = getUriParams(uriWithParams);
-                        String strippedUri = getStrippedUri(uriWithParams);
+                            String responseStringJsonBody = velosipedJsonAdapter.writeAsJson(response);
+                            System.out.println(responseStringJsonBody);
 
-                        if (Objects.equals(method, HTTP_METHOD_POST)) {
-                            if (Objects.equals(strippedUri, "/sum-post")) {
-                                int contentLength = getContentLength(headerLines);
-                                String contentType = getContentType(headerLines);
-                                //todo bytes?
-                                if (Objects.equals(contentType, CONTENT_TYPE_APPLICATION_JSON)) {
-                                    String stringJsonBody = getBodyAsString(inputStream, contentLength);
-
-                                    System.out.println(stringJsonBody);
-                                    Request request = velosipedJsonAdapter.parse(stringJsonBody, Request.class);
-
-                                    Response response = new EndpointHandler().calculateSum(request);
-
-                                    String responseStringJsonBody = velosipedJsonAdapter.writeAsJson(response);
-                                    System.out.println(responseStringJsonBody);
-
-                                    String httpResponse = "" +
-                                            "HTTP/1.1 200 OK\n" +
-                                            CONTENT_LENGTH_HEADER + (responseStringJsonBody).length() + "\n" +
-                                            CONTENT_TYPE_HEADER + CONTENT_TYPE_APPLICATION_JSON + "\n" +
-//                                            "Connection: Closed\n" +
-                                            "\n" +
-                                            responseStringJsonBody;
-                                    bufferedWriter.println(httpResponse);
-                                }
-                            }
+                            String httpResponse = createHttpResponseBodyWithBody(responseStringJsonBody);
+                            bufferedWriter.println(httpResponse);
+                        } else {
+                            bufferedWriter.println(createOkHttpResponseWithoutBody());
                         }
                     }
                 } catch (Exception e) {
@@ -118,6 +111,49 @@ public class VelosipedTask3Impl implements VelosipedTask3 {
             }
         }
 
+    }
+
+    private Request parseRequestAndDoMultipleNonSRPOperationsThere(InputStream inputStream, String uri) throws Exception {
+        List<String> headerLines = getHeaders(inputStream);
+
+        String method = getMethod(headerLines);
+        String uriWithParams = getUriWithParams(headerLines, method);
+        //not required right now
+        Map<String, String> uriParams = getUriParams(uriWithParams);
+        String strippedUri = getStrippedUri(uriWithParams);
+
+        Request request = null;
+        if (Objects.equals(method, HTTP_METHOD_POST)) {
+            if (Objects.equals(strippedUri, uri)) {
+                int contentLength = getContentLength(headerLines);
+                String contentType = getContentType(headerLines);
+                //todo bytes?
+                if (Objects.equals(contentType, CONTENT_TYPE_APPLICATION_JSON)) {
+                    String stringJsonBody = getBodyAsString(inputStream, contentLength);
+
+                    System.out.println(stringJsonBody);
+                    request = velosipedJsonAdapter.parse(stringJsonBody, Request.class);
+                }
+            }
+        }
+        return request;
+    }
+
+    private String createOkHttpResponseWithoutBody() {
+        return "HTTP/1.1 200 OK\n";
+    }
+
+    private String createHttpResponseBodyWithBody(String responseStringJsonBody) {
+        String httpResponse = "" +
+                "HTTP/1.1 200 OK\n" +
+                CONTENT_LENGTH_HEADER + responseStringJsonBody.length() + "\n" +
+                CONTENT_TYPE_HEADER + CONTENT_TYPE_APPLICATION_JSON + "\n" +
+                "Server: VelosipedServer\n" +
+                "Date: \n" + Instant.now().toString() + "\n" +
+                "Content-Type: " + CONTENT_TYPE_APPLICATION_JSON + "\n" +
+                "\n" +
+                responseStringJsonBody;
+        return httpResponse;
     }
 
     private String getStrippedUri(String uriWithParams) {
@@ -185,23 +221,26 @@ public class VelosipedTask3Impl implements VelosipedTask3 {
     private List<String> getHeaders(InputStream inputStream) throws IOException {
         List<String> headerLines = new ArrayList<>();
         String currentLine = null;
-        String previousLine = null;
-        String previous1Line = null;
+        int newLineCounter = 0;
         while (true) {
             StringBuilder body = new StringBuilder();
             while (true) {
                 int c = inputStream.read();
-                if (c == '\n' || c == '\r') {
+                if (c == '\r') {
+                    continue;
+                }
+                if (c == '\n') {
+                    newLineCounter++;
                     break;
                 }
                 body.append((char) c);
+                newLineCounter = 0;
             }
 
-            previous1Line = previousLine;
-            previousLine = currentLine;
             currentLine = body.toString();
 
-            if ("".equals(currentLine) && "".equals(previousLine) && "".equals(previous1Line)) {
+//            if ("".equals(currentLine) && "".equals(previousLine) && "".equals(previous1Line)) {
+            if (newLineCounter == 2) {
                 break;
             }
             if (!"".equals(currentLine)) {
@@ -211,4 +250,3 @@ public class VelosipedTask3Impl implements VelosipedTask3 {
         return headerLines;
     }
 }
-

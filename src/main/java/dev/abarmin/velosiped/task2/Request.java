@@ -1,5 +1,7 @@
 package dev.abarmin.velosiped.task2;
 
+import java.util.Objects;
+
 /**
  * DTO class for mapping incoming requests.
  */
@@ -29,5 +31,26 @@ public class Request {
 
     public void setArg2(int arg2) {
         this.arg2 = arg2;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Request request = (Request) o;
+        return arg1 == request.arg1 && arg2 == request.arg2;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(arg1, arg2);
+    }
+
+    @Override
+    public String toString() {
+        return "Request{" +
+                "arg1=" + arg1 +
+                ", arg2=" + arg2 +
+                '}';
     }
 }
