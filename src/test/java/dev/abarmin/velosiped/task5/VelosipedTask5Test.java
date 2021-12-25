@@ -72,7 +72,7 @@ class VelosipedTask5Test {
             "-1,-2"
     })
     void check_httpRequest(int a, int b) {
-        Request request = server.parseRequestParameters("POST /post-sum HTTP/1.1\n" +
+        Request request = server.parseRequestParameters("POST /sum-post HTTP/1.1\n" +
                 "Host: localhost:1234\n" +
                 "Content-Type: application/json\n" +
                 "Content-Length: " +

@@ -1,10 +1,13 @@
-package dev.abarmin.velosiped.task4;
+package dev.abarmin.velosiped.task6;
 
 import dev.abarmin.velosiped.task2.EndpointHandler;
 import dev.abarmin.velosiped.task2.Request;
 import dev.abarmin.velosiped.task2.Response;
 import dev.abarmin.velosiped.task3.VelosipedJsonAdapter;
 import dev.abarmin.velosiped.task3.VelosipedJsonAdapterImpl;
+import dev.abarmin.velosiped.task4.HTTPConstants;
+import dev.abarmin.velosiped.task4.RequestUtils;
+import dev.abarmin.velosiped.task4.ResponseUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -21,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class CustomHttpServerImpl implements CustomHttpServer {
+public class CustomSecuredHttpServerImpl implements CustomSecuredHttpServer {
 
     private volatile ServerSocket serverSocket;
     private volatile boolean serverServesRequests;
@@ -30,6 +33,7 @@ public class CustomHttpServerImpl implements CustomHttpServer {
     private VelosipedJsonAdapter velosipedJsonAdapter = new VelosipedJsonAdapterImpl();
     private RequestUtils requestUtils = new RequestUtils();
     private ResponseUtils responseUtils = new ResponseUtils();
+    private SecurityChecker securityChecker = new SecurityChecker();
 
     @Override
     public void startServer(int port) {
@@ -55,6 +59,11 @@ public class CustomHttpServerImpl implements CustomHttpServer {
         }
     }
 
+    @Override
+    public boolean securityFilter(String httpRequest) throws SecurityException {
+        return false;
+    }
+
     //todo awfully broken srp
     @Override
     public Request parseRequestParameters(String httpRequest) {
@@ -77,7 +86,6 @@ public class CustomHttpServerImpl implements CustomHttpServer {
     }
 
     private class MyHandrittenConnectionHandler implements Runnable {
-
 
         @Override
         public void run() {
@@ -120,27 +128,38 @@ public class CustomHttpServerImpl implements CustomHttpServer {
         Map<String, String> uriParams = requestUtils.getUriParams(uriWithParams);
         String strippedUri = requestUtils.getStrippedUri(uriWithParams);
 
-        if (Objects.equals(method, HTTPConstants.HTTP_METHOD_POST)) {
-            if (Objects.equals(strippedUri, "/sum-post")) {
-                int contentLength = requestUtils.getContentLength(headerLines);
-                String contentType = requestUtils.getContentType(headerLines);
-                //todo bytes?
-                if (Objects.equals(contentType, HTTPConstants.CONTENT_TYPE_APPLICATION_JSON)) {
-                    String stringJsonBody = requestUtils.getBodyAsString(inputStream, contentLength);
+        String authorizationValue = requestUtils.getAuthorizationValue(headerLines);
 
-                    System.out.println(stringJsonBody);
-                    Request request = velosipedJsonAdapter.parse(stringJsonBody, Request.class);
-                    intermediateResults.put("parsed request", request);
+        boolean goodAuthorization = securityChecker.isGoodAuthorization(authorizationValue);
+        intermediateResults.put("isAuthGood", goodAuthorization);
 
-                    Response response = endpointHandler.calculateSum(request);
+        if (goodAuthorization) {
 
-                    String responseStringJsonBody = velosipedJsonAdapter.writeAsJson(response);
-                    System.out.println(responseStringJsonBody);
+            if (Objects.equals(method, HTTPConstants.HTTP_METHOD_POST)) {
+                if (Objects.equals(strippedUri, "/sum-post")) {
+                    int contentLength = requestUtils.getContentLength(headerLines);
+                    String contentType = requestUtils.getContentType(headerLines);
+                    //todo bytes?
+                    if (Objects.equals(contentType, HTTPConstants.CONTENT_TYPE_APPLICATION_JSON)) {
+                        String stringJsonBody = requestUtils.getBodyAsString(inputStream, contentLength);
 
-                    String httpResponse = responseUtils.createHttpResponseBodyWithBody(responseStringJsonBody);
-                    bufferedWriter.println(httpResponse);
+                        System.out.println(stringJsonBody);
+                        Request request = velosipedJsonAdapter.parse(stringJsonBody, Request.class);
+                        intermediateResults.put("parsed request", request);
+
+                        Response response = endpointHandler.calculateSum(request);
+
+                        String responseStringJsonBody = velosipedJsonAdapter.writeAsJson(response);
+                        System.out.println(responseStringJsonBody);
+
+                        String httpResponse = responseUtils.createHttpResponseBodyWithBody(responseStringJsonBody);
+                        bufferedWriter.println(httpResponse);
+                    }
                 }
             }
+        } else {
+            String httpResponse = responseUtils.create401UnauthorizedAccessResponseWithBody("Unauthorized access");
+            bufferedWriter.println(httpResponse);
         }
 
         return intermediateResults;

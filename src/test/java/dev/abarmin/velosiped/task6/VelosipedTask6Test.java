@@ -51,7 +51,7 @@ class VelosipedTask6Test {
         connection.setRequestMethod("POST");
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setRequestProperty("Authorization", "Bearer " +
-                Arrays.toString(Base64.getEncoder().encode("Batman".getBytes(StandardCharsets.UTF_8))));
+                new String(Base64.getEncoder().encode("Batman".getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8));
 
         final String requestBody = "{\"arg1\": " + a + ", \"arg2\": " + b + "}";
         try (final OutputStream outputStream = connection.getOutputStream()) {
@@ -82,7 +82,7 @@ class VelosipedTask6Test {
         connection.setRequestMethod("POST");
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setRequestProperty("Authorization", "Bearer " +
-                Arrays.toString(Base64.getEncoder().encode("Robin".getBytes(StandardCharsets.UTF_8))));
+                new String(Base64.getEncoder().encode("Robin".getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8));
 
         final String requestBody = "{\"arg1\": " + a + ", \"arg2\": " + b + "}";
         try (final OutputStream outputStream = connection.getOutputStream()) {

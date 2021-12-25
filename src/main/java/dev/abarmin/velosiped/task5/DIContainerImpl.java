@@ -16,7 +16,7 @@ public class DIContainerImpl implements DIContainer {
 
     @Override
     public void init() {
-        String packageName = "dev.abarmin.velosiped.task4";
+        String packageName = "dev.abarmin.velosiped";
 
         try {
             List<Class> classes = getClasses(packageName);

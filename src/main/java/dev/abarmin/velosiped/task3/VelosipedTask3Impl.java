@@ -1,8 +1,8 @@
 package dev.abarmin.velosiped.task3;
 
+import dev.abarmin.velosiped.task2.EndpointHandler;
 import dev.abarmin.velosiped.task2.Request;
 import dev.abarmin.velosiped.task2.Response;
-import dev.abarmin.velosiped.task2.VelosipedTask2Impl;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,11 +52,7 @@ public class VelosipedTask3Impl implements VelosipedTask3 {
         }
     }
 
-    private static class EndpointHandler {
-        public Response calculateSum(Request request) {
-            return new Response(request.getArg1() + request.getArg2());
-        }
-    }
+    private final EndpointHandler endpointHandler = new EndpointHandler();
 
     private VelosipedJsonAdapter velosipedJsonAdapter = new VelosipedJsonAdapterImpl();
 
@@ -95,7 +91,7 @@ public class VelosipedTask3Impl implements VelosipedTask3 {
                                     System.out.println(stringJsonBody);
                                     Request request = velosipedJsonAdapter.parse(stringJsonBody, Request.class);
 
-                                    Response response = new EndpointHandler().calculateSum(request);
+                                    Response response = endpointHandler.calculateSum(request);
 
                                     String responseStringJsonBody = velosipedJsonAdapter.writeAsJson(response);
                                     System.out.println(responseStringJsonBody);

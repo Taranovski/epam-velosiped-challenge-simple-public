@@ -1,6 +1,5 @@
 package dev.abarmin.velosiped.task2;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -28,6 +27,7 @@ public class VelosipedTask2Impl implements VelosipedTask2 {
     public static final String CONTENT_TYPE_APPLICATION_JSON = "application/json";
     private volatile ServerSocket serverSocket;
     private volatile boolean serverServesRequests;
+    private EndpointHandler endpointHandler = new EndpointHandler();
 
     @Override
     public void startServer(int port) {
@@ -50,12 +50,6 @@ public class VelosipedTask2Impl implements VelosipedTask2 {
             serverSocket.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    private static class EndpointHandler {
-        public Response calculateSum(Request request) {
-            return new Response(request.getArg1() + request.getArg2());
         }
     }
 
@@ -94,7 +88,7 @@ public class VelosipedTask2Impl implements VelosipedTask2 {
                                     System.out.println(stringJsonBody);
                                     Request request = createRequestFromJsonBody(stringJsonBody, Request.class);
 
-                                    Response response = new EndpointHandler().calculateSum(request);
+                                    Response response = endpointHandler.calculateSum(request);
 
                                     String responseStringJsonBody = createResponseStringJsonFromObject(response);
                                     System.out.println(responseStringJsonBody);
