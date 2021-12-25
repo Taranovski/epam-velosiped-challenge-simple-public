@@ -75,7 +75,9 @@ class VelosipedTask5Test {
         Request request = server.parseRequestParameters("POST /post-sum HTTP/1.1\n" +
                 "Host: localhost:1234\n" +
                 "Content-Type: application/json\n" +
-                "Content-Length: 35\n" +
+                "Content-Length: " +
+                ((String.valueOf(a) +String.valueOf(b)).length() + 31) +
+                "\n" +
                 "\n" +
                 "{\n" +
                 "    \"arg1\": " + a + ",\n" +
@@ -100,7 +102,7 @@ class VelosipedTask5Test {
             "-1,-2"
     })
     void check_httpResponse(int a, int b) {
-        String response = server.createHttpResponse("{\"arg1\": " + a + ", \"arg2\": " + b + "}");
+        String response = server.createHttpResponse("{\"result\":" + (a + b) + "}");
         assertTrue(response.contains("HTTP/1.1 200 OK"));
         assertTrue(response.contains("Date:"));
         assertTrue(response.contains("Server: VelosipedServer"));
