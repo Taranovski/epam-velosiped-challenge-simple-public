@@ -1,9 +1,16 @@
 package dev.abarmin.velosiped.task5;
 
+import dev.abarmin.velosiped.task7.Inject;
+import dev.abarmin.velosiped.task7.PostConstruct;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -13,6 +20,8 @@ import java.util.Map;
 public class DIContainerImpl implements DIContainer {
 
     private Map<Class, Object> classObjectMap = new HashMap<>();
+    private Map<Method, Object> postConstructClassObjectMap = new HashMap<>();
+    private Map<Field, Map.Entry<Object, Class>> injectFieldClassObjectMap = new HashMap<>();
 
     @Override
     public void init() {
@@ -22,24 +31,82 @@ public class DIContainerImpl implements DIContainer {
             List<Class> classes = getClasses(packageName);
 
             for (Class aClass : classes) {
-                if (aClass.getSimpleName().endsWith("Impl")) {
+                String simpleName = aClass.getSimpleName();
+                if (simpleName.endsWith("Impl") || simpleName.endsWith("Component")) {
 
-                    Constructor declaredConstructor = aClass.getDeclaredConstructor();
-                    Object newInstance = declaredConstructor.newInstance();
+                    Object newInstance = createInstance(aClass);
 
-                    Class[] interfaces = aClass.getInterfaces();
+                    collectBeanObjectsByClass(aClass, newInstance);
 
-                    for (Class aInterface : interfaces) {
-                        classObjectMap.put(aInterface, newInstance);
-                    }
-                    classObjectMap.put(aClass, newInstance);
+                    collectDependencies(aClass, newInstance);
+
+                    collectPostConstructs(aClass, newInstance);
                 }
             }
 
+            fillDependencies();
+
+            runPostConstructs();
 
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private Object createInstance(Class aClass) throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException {
+        Constructor declaredConstructor = aClass.getDeclaredConstructor();
+        Object newInstance = declaredConstructor.newInstance();
+        return newInstance;
+    }
+
+    private void runPostConstructs() throws IllegalAccessException, InvocationTargetException {
+        for (Map.Entry<Method, Object> entry : postConstructClassObjectMap.entrySet()) {
+            Method method = entry.getKey();
+            Object object = entry.getValue();
+            method.invoke(object);
+        }
+    }
+
+    private void fillDependencies() throws IllegalAccessException {
+        for (Map.Entry<Field, Map.Entry<Object, Class>> fieldEntryEntry : injectFieldClassObjectMap.entrySet()) {
+            Field field = fieldEntryEntry.getKey();
+            Map.Entry<Object, Class> value = fieldEntryEntry.getValue();
+
+            Object object = value.getKey();
+            Class aClass1 = value.getValue();
+
+            field.setAccessible(true);
+            field.set(object, classObjectMap.get(aClass1));
+        }
+    }
+
+    private void collectPostConstructs(Class aClass, Object newInstance) {
+        Method[] methods = aClass.getMethods();
+        for (Method method : methods) {
+            if (method.isAnnotationPresent(PostConstruct.class)) {
+                postConstructClassObjectMap.put(method, newInstance);
+            }
+        }
+    }
+
+    private void collectDependencies(Class aClass, Object newInstance) {
+        Field[] declaredFields = aClass.getDeclaredFields();
+        for (Field declaredField : declaredFields) {
+            if (declaredField.isAnnotationPresent(Inject.class)) {
+                Class<?> type = declaredField.getType();
+
+                injectFieldClassObjectMap.put(declaredField, new AbstractMap.SimpleEntry<>(newInstance, type));
+            }
+        }
+    }
+
+    private void collectBeanObjectsByClass(Class aClass, Object newInstance) {
+        Class[] interfaces = aClass.getInterfaces();
+
+        for (Class aInterface : interfaces) {
+            classObjectMap.put(aInterface, newInstance);
+        }
+        classObjectMap.put(aClass, newInstance);
     }
 
     @Override
