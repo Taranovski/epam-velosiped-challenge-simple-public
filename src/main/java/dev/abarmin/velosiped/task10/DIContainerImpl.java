@@ -39,7 +39,12 @@ public class DIContainerImpl implements DIContainer {
                     collectPostConstructs(aClass, newInstance);
                 } else if (aClass.isAnnotationPresent(Controller.class)) {
 
-                    collectControllerRoutings(aClass);
+                    final Object newInstance = createInstance(aClass);
+                    collectBeanObjectsByClass(aClass, newInstance);
+                    collectDependencies(aClass, newInstance);
+                    collectPostConstructs(aClass, newInstance);
+
+                    collectControllerRoutings(aClass, newInstance);
                 }
             }
 
@@ -60,9 +65,7 @@ public class DIContainerImpl implements DIContainer {
         }
     }
 
-    private void collectControllerRoutings(Class aClass) throws Exception {
-        Object newInstance = createInstance(aClass);
-        collectDependencies(aClass, newInstance);
+    private void collectControllerRoutings(Class aClass, Object newInstance) throws Exception {
 
         Method[] methods = aClass.getMethods();
         for (Method method : methods) {
